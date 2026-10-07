@@ -18,6 +18,12 @@ import software.amazon.awscdk.services.lambda.Function;
 import software.amazon.awscdk.services.lambda.Runtime;
 import software.amazon.awscdk.services.logs.LogGroup;
 import software.amazon.awscdk.services.logs.RetentionDays;
+import software.amazon.awscdk.CfnOutput;
+import software.amazon.awscdk.services.apigateway.LambdaIntegration;
+import software.amazon.awscdk.services.apigateway.Resource;
+import software.amazon.awscdk.services.apigateway.RestApi;
+import software.amazon.awscdk.services.apigateway.StageOptions;
+
 
 public class ServerlessBoardStack extends Stack {
     public ServerlessBoardStack(final Construct scope, final String id) {
@@ -55,7 +61,24 @@ public class ServerlessBoardStack extends Stack {
         table.grant(createPostFn, "dynamodb:PutItem");
         table.grant(listPostsFn, "dynamodb:Query");
 
+        final RestApi api = RestApi.Builder.create(this, "BoardApi")
+                .restApiName("serverless-board-api")
+                .description("Serverless board REST API")
+                .deployOptions(StageOptions.builder()
+                        .stageName("prod")
+                        .throttlingRateLimit(5)
+                        .throttlingBurstLimit(10)
+                        .build())
+                .build();
 
+        final Resource posts = api.getRoot().addResource("posts");
+        posts.addMethod("GET", new LambdaIntegration(listPostsFn));
+        posts.addMethod("POST", new LambdaIntegration(createPostFn));
+
+        CfnOutput.Builder.create(this, "ApiUrl")
+                .value((api.getUrl()))
+                .description("Base URL of the board  API")
+                .build();
 
     }
 
