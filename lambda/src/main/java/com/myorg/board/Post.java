@@ -6,6 +6,7 @@ import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbParti
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbSecondaryPartitionKey;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbSecondarySortKey;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbSortKey;
+import java.util.List;
 
 @DynamoDbBean
 public class Post {
@@ -18,6 +19,7 @@ public class Post {
     private String content;
     private String authorId;
     private String createdAt;
+    private List<String> imageKeys;
 
     @DynamoDbPartitionKey
     @DynamoDbAttribute("pk")
@@ -53,4 +55,8 @@ public class Post {
 
     public String getCreatedAt() { return createdAt; }
     public void setCreatedAt(String createdAt) { this.createdAt = createdAt; }
+
+    public List<String> getImageKeys() { return imageKeys; }
+
+    public void setImageKeys(List<String> imageKeys) {this.imageKeys = imageKeys;}
 }

@@ -8,7 +8,10 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.Objects;
 import java.util.UUID;
+import java.util.regex.Pattern;
+import java.util.List;
 
 public class CreatePostHandler
         implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
@@ -17,6 +20,9 @@ public class CreatePostHandler
             DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").withZone(ZoneOffset.UTC);
 
     private final PostRepository repository = new PostRepository(System.getenv("TABLE_NAME"));
+
+    private static final int MAX_IMAGES = 5;
+    private static final Pattern IMAGE_KEY = Pattern.compile("^uploads/[0-9a-f-]{36}\\.(jpg|png)$");
 
     @Override
     public APIGatewayProxyResponseEvent handleRequest(APIGatewayProxyRequestEvent event, Context context) {
@@ -39,6 +45,19 @@ public class CreatePostHandler
             return ApiResponses.error(400, "title must be 100 characters or less");
         }
 
+        List<String> imageKeys = Objects.requireNonNullElse(request.imageKeys(), List.of());
+        if (imageKeys.size() >MAX_IMAGES)
+        {
+            return ApiResponses.error(400, "at most 5 images are allowed");
+        }
+
+        for (String key : imageKeys) {
+            if (key == null || !IMAGE_KEY.matcher(key).matches()){
+                return ApiResponses.error(400, "invalid image key");
+            }
+        }
+
+
         String postId = UUID.randomUUID().toString();
         String createdAt = TIMESTAMP.format(Instant.now());
 
@@ -52,6 +71,7 @@ public class CreatePostHandler
         post.setContent(request.content());
         post.setAuthorId("anonymous");
         post.setCreatedAt(createdAt);
+        post.setImageKeys(imageKeys);
 
         try {
             repository.save(post);

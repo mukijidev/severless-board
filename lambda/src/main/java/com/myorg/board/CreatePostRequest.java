@@ -1,4 +1,5 @@
 package com.myorg.board;
+import java.util.List;
 
-public record CreatePostRequest(String title, String content) {
+public record CreatePostRequest(String title, String content, List<String> imageKeys) {
 }
