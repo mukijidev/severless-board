@@ -1,20 +1,23 @@
 package com.myorg;
 
-import software.constructs.Construct;
+import software.amazon.awscdk.RemovalPolicy;
 import software.amazon.awscdk.Stack;
 import software.amazon.awscdk.StackProps;
-import software.amazon.awscdk.RemovalPolicy;
-import software.amazon.awscdk.services.s3.Bucket;
 import software.amazon.awscdk.services.s3.BlockPublicAccess;
+import software.amazon.awscdk.services.s3.Bucket;
+import software.constructs.Construct;
+import software.amazon.awscdk.services.dynamodb.Attribute;
+import software.amazon.awscdk.services.dynamodb.AttributeType;
+import software.amazon.awscdk.services.dynamodb.BillingMode;
+import software.amazon.awscdk.services.dynamodb.GlobalSecondaryIndexProps;
+import software.amazon.awscdk.services.dynamodb.Table;
+import java.util.Map;
 import software.amazon.awscdk.Duration;
 import software.amazon.awscdk.services.lambda.Code;
 import software.amazon.awscdk.services.lambda.Function;
 import software.amazon.awscdk.services.lambda.Runtime;
-import java.util.Map;
 import software.amazon.awscdk.services.logs.LogGroup;
 import software.amazon.awscdk.services.logs.RetentionDays;
-import software.amazon.awscdk.services.s3.EventType;
-import software.amazon.awscdk.services.s3.notifications.LambdaDestination;
 
 public class ServerlessBoardStack extends Stack {
     public ServerlessBoardStack(final Construct scope, final String id) {
@@ -31,22 +34,45 @@ public class ServerlessBoardStack extends Stack {
                 .blockPublicAccess(BlockPublicAccess.BLOCK_ALL)
                 .build();
 
-        final LogGroup uploadLogs = LogGroup.Builder.create(this, "UploadFunctionLogs")
+        final Table table = Table.Builder.create(this, "BoardTable")
+                .partitionKey(Attribute.builder().name("pk").type(AttributeType.STRING).build())
+                .sortKey(Attribute.builder().name("sk").type(AttributeType.STRING).build())
+                .billingMode(BillingMode.PAY_PER_REQUEST)
+                .removalPolicy(RemovalPolicy.DESTROY)
+                .build();
+
+        table.addGlobalSecondaryIndex(GlobalSecondaryIndexProps.builder()
+                .indexName("gsi1")
+                .partitionKey(Attribute.builder().name("gsi1pk").type(AttributeType.STRING).build())
+                .sortKey(Attribute.builder().name("gsi1sk").type(AttributeType.STRING).build())
+                .build());
+
+        final Function createPostFn = createBoardFunction(
+                "CreatePostFunction", "com.myorg.board.CreatePostHandler::handleRequest", table);
+        final Function listPostsFn = createBoardFunction(
+                "ListPostsFunction", "com.myorg.board.ListPostsHandler::handleRequest", table);
+
+        table.grant(createPostFn, "dynamodb:PutItem");
+        table.grant(listPostsFn, "dynamodb:Query");
+
+
+
+    }
+
+    private Function createBoardFunction(String id, String handler, Table table) {
+        final LogGroup logs = LogGroup.Builder.create(this, id + "Logs")
                 .retention(RetentionDays.ONE_WEEK)
                 .removalPolicy(RemovalPolicy.DESTROY)
                 .build();
 
-        final Function uploadFn = Function.Builder.create(this, "UploadFunction")
+        return Function.Builder.create(this, id)
                 .runtime(Runtime.JAVA_21)
-                .handler("com.myorg.board.UploadHandler::handleRequest")
+                .handler(handler)
                 .code(Code.fromAsset("lambda/target/board-lambda.jar"))
                 .memorySize(512)
                 .timeout(Duration.seconds(15))
-                .environment(Map.of("BUCKET_NAME", bucket.getBucketName()))
-                .logGroup(uploadLogs)
+                .logGroup(logs)
+                .environment(Map.of("TABLE_NAME", table.getTableName()))
                 .build();
-
-        bucket.grantReadWrite(uploadFn);
-        bucket.addEventNotification(EventType.OBJECT_CREATED, new LambdaDestination(uploadFn));
     }
 }
