@@ -54,12 +54,19 @@ public class ServerlessBoardStack extends Stack {
                 .build());
 
         final Function createPostFn = createBoardFunction(
-                "CreatePostFunction", "com.myorg.board.post.CreatePostHandler::handleRequest", table);
+                "CreatePostFunction", "com.myorg.board.post.CreatePostHandler::handleRequest",  Map.of("TABLE_NAME", table.getTableName()));
         final Function listPostsFn = createBoardFunction(
-                "ListPostsFunction", "com.myorg.board.post.ListPostsHandler::handleRequest", table);
+                "ListPostsFunction", "com.myorg.board.post.ListPostsHandler::handleRequest",  Map.of("TABLE_NAME", table.getTableName()));
 
         table.grant(createPostFn, "dynamodb:PutItem");
         table.grant(listPostsFn, "dynamodb:Query");
+
+        final Function presignedUrlFn = createBoardFunction(
+                "PresignedUrlFunction",  "com.myorg.board.upload.PresignedUrlHandler::handleRequest",
+                Map.of("BUCKET_NAME", bucket.getBucketName()));
+
+        bucket.grantPut(presignedUrlFn, "uploads/*");
+
 
         final RestApi api = RestApi.Builder.create(this, "BoardApi")
                 .restApiName("serverless-board-api")
@@ -75,6 +82,9 @@ public class ServerlessBoardStack extends Stack {
         posts.addMethod("GET", new LambdaIntegration(listPostsFn));
         posts.addMethod("POST", new LambdaIntegration(createPostFn));
 
+        final Resource uploads = api.getRoot().addResource("uploads");
+        uploads.addMethod("POST", new LambdaIntegration(presignedUrlFn));
+
         CfnOutput.Builder.create(this, "ApiUrl")
                 .value((api.getUrl()))
                 .description("Base URL of the board  API")
@@ -82,7 +92,7 @@ public class ServerlessBoardStack extends Stack {
 
     }
 
-    private Function createBoardFunction(String id, String handler, Table table) {
+    private Function createBoardFunction(String id, String handler, Map<String, String> environment) {
         final LogGroup logs = LogGroup.Builder.create(this, id + "Logs")
                 .retention(RetentionDays.ONE_WEEK)
                 .removalPolicy(RemovalPolicy.DESTROY)
@@ -95,7 +105,7 @@ public class ServerlessBoardStack extends Stack {
                 .memorySize(512)
                 .timeout(Duration.seconds(15))
                 .logGroup(logs)
-                .environment(Map.of("TABLE_NAME", table.getTableName()))
+                .environment(environment)
                 .build();
     }
 }
