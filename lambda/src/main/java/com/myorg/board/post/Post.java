@@ -1,4 +1,4 @@
-package com.myorg.board;
+package com.myorg.board.post;
 
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbAttribute;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean;

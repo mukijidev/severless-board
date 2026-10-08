@@ -1,17 +1,19 @@
-package com.myorg.board;
+package com.myorg.board.post;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.myorg.board.common.ApiResponses;
+import com.myorg.board.upload.ImageKeys;
+
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.regex.Pattern;
-import java.util.List;
 
 public class CreatePostHandler
         implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
@@ -22,7 +24,7 @@ public class CreatePostHandler
     private final PostRepository repository = new PostRepository(System.getenv("TABLE_NAME"));
 
     private static final int MAX_IMAGES = 5;
-    private static final Pattern IMAGE_KEY = Pattern.compile("^uploads/[0-9a-f-]{36}\\.(jpg|png)$");
+
 
     @Override
     public APIGatewayProxyResponseEvent handleRequest(APIGatewayProxyRequestEvent event, Context context) {
@@ -52,7 +54,7 @@ public class CreatePostHandler
         }
 
         for (String key : imageKeys) {
-            if (key == null || !IMAGE_KEY.matcher(key).matches()){
+            if (!ImageKeys.isValid(key)) {
                 return ApiResponses.error(400, "invalid image key");
             }
         }

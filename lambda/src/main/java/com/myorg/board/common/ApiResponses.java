@@ -1,4 +1,4 @@
-package com.myorg.board;
+package com.myorg.board.common;
 
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.fasterxml.jackson.core.JsonProcessingException;

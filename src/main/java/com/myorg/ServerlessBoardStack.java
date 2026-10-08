@@ -54,9 +54,9 @@ public class ServerlessBoardStack extends Stack {
                 .build());
 
         final Function createPostFn = createBoardFunction(
-                "CreatePostFunction", "com.myorg.board.CreatePostHandler::handleRequest", table);
+                "CreatePostFunction", "com.myorg.board.post.CreatePostHandler::handleRequest", table);
         final Function listPostsFn = createBoardFunction(
-                "ListPostsFunction", "com.myorg.board.ListPostsHandler::handleRequest", table);
+                "ListPostsFunction", "com.myorg.board.post.ListPostsHandler::handleRequest", table);
 
         table.grant(createPostFn, "dynamodb:PutItem");
         table.grant(listPostsFn, "dynamodb:Query");

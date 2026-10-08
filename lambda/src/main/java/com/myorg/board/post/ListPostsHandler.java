@@ -1,9 +1,11 @@
-package com.myorg.board;
+package com.myorg.board.post;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
+import com.myorg.board.common.ApiResponses;
+
 import java.util.List;
 import java.util.Map;
 

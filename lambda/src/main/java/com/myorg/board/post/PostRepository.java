@@ -1,4 +1,4 @@
-package com.myorg.board;
+package com.myorg.board.post;
 
 import java.util.ArrayList;
 import java.util.List;
