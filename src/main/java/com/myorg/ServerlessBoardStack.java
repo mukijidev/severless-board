@@ -86,6 +86,16 @@ public class ServerlessBoardStack extends Stack {
         table.grant(createPostFn, "dynamodb:PutItem");
         table.grant(listPostsFn, "dynamodb:Query");
 
+        final Function updatePostFn = createBoardFunction(
+                "UpdatePostFunction", "com.myorg.board.post.UpdatePostHandler::handleRequest",
+                Map.of("TABLE_NAME", table.getTableName()));
+        final Function deletePostFn = createBoardFunction(
+                "DeletePostFunction", "com.myorg.board.post.DeletePostHandler::handleRequest",
+                Map.of("TABLE_NAME", table.getTableName()));
+
+        table.grant(updatePostFn, "dynamodb:UpdateItem");
+        table.grant(deletePostFn, "dynamodb:DeleteItem");
+
         final Function presignedUrlFn = createBoardFunction(
                 "PresignedUrlFunction",  "com.myorg.board.upload.PresignedUrlHandler::handleRequest",
                 Map.of("BUCKET_NAME", bucket.getBucketName()));
@@ -120,6 +130,10 @@ public class ServerlessBoardStack extends Stack {
 
         final Resource uploads = api.getRoot().addResource("uploads");
         uploads.addMethod("POST", new LambdaIntegration(presignedUrlFn), authRequired);
+
+        final Resource postById = posts.addResource("{postId}");
+        postById.addMethod("PUT", new LambdaIntegration(updatePostFn), authRequired);
+        postById.addMethod("DELETE", new LambdaIntegration(deletePostFn), authRequired);
 
         CfnOutput.Builder.create(this, "ApiUrl")
                 .value((api.getUrl()))
