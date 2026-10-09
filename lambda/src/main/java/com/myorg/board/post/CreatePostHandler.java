@@ -24,7 +24,6 @@ public class CreatePostHandler
 
     private final PostRepository repository = new PostRepository(System.getenv("TABLE_NAME"));
 
-    private static final int MAX_IMAGES = 5;
 
 
     @Override
@@ -49,20 +48,15 @@ public class CreatePostHandler
         if (request == null || isBlank(request.title()) || isBlank(request.content())) {
             return ApiResponses.error(400, "title and content are required");
         }
-        if (request.title().length() > 100) {
+        if (request.title().length() > PostRules.MAX_TITLE_LENGTH) {
             return ApiResponses.error(400, "title must be 100 characters or less");
         }
 
         List<String> imageKeys = Objects.requireNonNullElse(request.imageKeys(), List.of());
-        if (imageKeys.size() >MAX_IMAGES)
-        {
-            return ApiResponses.error(400, "at most 5 images are allowed");
-        }
 
-        for (String key : imageKeys) {
-            if (!ImageKeys.isValid(key)) {
-                return ApiResponses.error(400, "invalid image key");
-            }
+        String imageError = PostRules.imageKeysError(imageKeys);
+        if (imageError != null) {
+            return ApiResponses.error(400, imageError);
         }
 
 

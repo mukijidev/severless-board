@@ -30,4 +30,10 @@ public final class ApiResponses {
     public static APIGatewayProxyResponseEvent error(int status, String message) {
         return json(status, Map.of("message", message));
     }
+
+    public static APIGatewayProxyResponseEvent noContent() {
+        return new APIGatewayProxyResponseEvent()
+                .withStatusCode(204)
+                .withHeaders(Map.of("Access-Control-Allow-Origin", "*"));
+    }
 }
