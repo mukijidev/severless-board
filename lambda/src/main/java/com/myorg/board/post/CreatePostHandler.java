@@ -7,6 +7,7 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.myorg.board.common.ApiResponses;
 import com.myorg.board.upload.ImageKeys;
+import com.myorg.board.common.Auth;
 
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -28,6 +29,11 @@ public class CreatePostHandler
 
     @Override
     public APIGatewayProxyResponseEvent handleRequest(APIGatewayProxyRequestEvent event, Context context) {
+        String userId = Auth.userId(event);
+        if(userId == null) {
+            return ApiResponses.error(401, "Unauthorized");
+        }
+
         String body = event.getBody();
         if (body == null || body.isBlank()) {
             return ApiResponses.error(400, "Request body is required");
@@ -71,7 +77,7 @@ public class CreatePostHandler
         post.setPostId(postId);
         post.setTitle(request.title());
         post.setContent(request.content());
-        post.setAuthorId("anonymous");
+        post.setAuthorId(userId);
         post.setCreatedAt(createdAt);
         post.setImageKeys(imageKeys);
 

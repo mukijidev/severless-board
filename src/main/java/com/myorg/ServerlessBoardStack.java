@@ -3,6 +3,7 @@ package com.myorg;
 import software.amazon.awscdk.RemovalPolicy;
 import software.amazon.awscdk.Stack;
 import software.amazon.awscdk.StackProps;
+import software.amazon.awscdk.services.apigateway.*;
 import software.amazon.awscdk.services.s3.BlockPublicAccess;
 import software.amazon.awscdk.services.s3.Bucket;
 import software.constructs.Construct;
@@ -19,16 +20,14 @@ import software.amazon.awscdk.services.lambda.Runtime;
 import software.amazon.awscdk.services.logs.LogGroup;
 import software.amazon.awscdk.services.logs.RetentionDays;
 import software.amazon.awscdk.CfnOutput;
-import software.amazon.awscdk.services.apigateway.LambdaIntegration;
-import software.amazon.awscdk.services.apigateway.Resource;
-import software.amazon.awscdk.services.apigateway.RestApi;
-import software.amazon.awscdk.services.apigateway.StageOptions;
 import software.amazon.awscdk.services.cognito.AuthFlow;
 import software.amazon.awscdk.services.cognito.AutoVerifiedAttrs;
 import software.amazon.awscdk.services.cognito.SignInAliases;
 import software.amazon.awscdk.services.cognito.UserPool;
 import software.amazon.awscdk.services.cognito.UserPoolClient;
 import software.amazon.awscdk.services.cognito.UserPoolClientOptions;
+
+import java.util.List;
 
 public class ServerlessBoardStack extends Stack {
     public ServerlessBoardStack(final Construct scope, final String id) {
@@ -38,13 +37,14 @@ public class ServerlessBoardStack extends Stack {
     public ServerlessBoardStack(final Construct scope, final String id, final StackProps props) {
         super(scope, id, props);
 
-        // The code that defines your stack goes here
+        // s3
         final Bucket bucket = Bucket.Builder.create(this, "BoardBucket")
                 .removalPolicy(RemovalPolicy.DESTROY)
                 .autoDeleteObjects(true)
                 .blockPublicAccess(BlockPublicAccess.BLOCK_ALL)
                 .build();
 
+        // dynamodb
         final Table table = Table.Builder.create(this, "BoardTable")
                 .partitionKey(Attribute.builder().name("pk").type(AttributeType.STRING).build())
                 .sortKey(Attribute.builder().name("sk").type(AttributeType.STRING).build())
@@ -57,6 +57,26 @@ public class ServerlessBoardStack extends Stack {
                 .partitionKey(Attribute.builder().name("gsi1pk").type(AttributeType.STRING).build())
                 .sortKey(Attribute.builder().name("gsi1sk").type(AttributeType.STRING).build())
                 .build());
+
+        // User Pool
+        final UserPool userPool = UserPool.Builder.create(this, "BoardUserPool")
+                .userPoolName("serverless-board-users")
+                .selfSignUpEnabled(true)
+                .signInAliases(SignInAliases.builder().email(true).build())
+                .autoVerify(AutoVerifiedAttrs.builder().email(true).build())
+                .removalPolicy(RemovalPolicy.DESTROY)
+                .build();
+
+        final UserPoolClient userPoolClient = userPool.addClient("BoardWebClient",
+                UserPoolClientOptions.builder().generateSecret(false)
+                        .authFlows(AuthFlow.builder().userPassword(true).userSrp(true).build()).build());
+
+        CfnOutput.Builder.create(this, "UserPoolId").value(userPool.getUserPoolId()).build();
+        CfnOutput.Builder.create(this, "UserPoolClientId").value(userPoolClient.getUserPoolClientId()).build();
+
+
+
+
 
         final Function createPostFn = createBoardFunction(
                 "CreatePostFunction", "com.myorg.board.post.CreatePostHandler::handleRequest",  Map.of("TABLE_NAME", table.getTableName()));
@@ -83,12 +103,23 @@ public class ServerlessBoardStack extends Stack {
                         .build())
                 .build();
 
+        final CognitoUserPoolsAuthorizer authorizer = CognitoUserPoolsAuthorizer.Builder
+                .create(this, "BoardAuthorizer")
+                .cognitoUserPools(List.of(userPool))
+                .build();
+
+        final MethodOptions authRequired = MethodOptions.builder()
+                .authorizer(authorizer)
+                .authorizationType(AuthorizationType.COGNITO)
+                .build();
+
+
         final Resource posts = api.getRoot().addResource("posts");
         posts.addMethod("GET", new LambdaIntegration(listPostsFn));
-        posts.addMethod("POST", new LambdaIntegration(createPostFn));
+        posts.addMethod("POST", new LambdaIntegration(createPostFn),authRequired);
 
         final Resource uploads = api.getRoot().addResource("uploads");
-        uploads.addMethod("POST", new LambdaIntegration(presignedUrlFn));
+        uploads.addMethod("POST", new LambdaIntegration(presignedUrlFn), authRequired);
 
         CfnOutput.Builder.create(this, "ApiUrl")
                 .value((api.getUrl()))
@@ -96,21 +127,7 @@ public class ServerlessBoardStack extends Stack {
                 .build();
 
 
-        // User Pool
-        final UserPool userPool = UserPool.Builder.create(this, "BoardUserPool")
-                .userPoolName("serverless-board-users")
-                .selfSignUpEnabled(true)
-                .signInAliases(SignInAliases.builder().email(true).build())
-                .autoVerify(AutoVerifiedAttrs.builder().email(true).build())
-                .removalPolicy(RemovalPolicy.DESTROY)
-                .build();
 
-        final UserPoolClient userPoolClient = userPool.addClient("BoardWebClient",
-                UserPoolClientOptions.builder().generateSecret(false)
-                        .authFlows(AuthFlow.builder().userPassword(true).userSrp(true).build()).build());
-
-        CfnOutput.Builder.create(this, "UserPoolId").value(userPool.getUserPoolId()).build();
-        CfnOutput.Builder.create(this, "UserPoolClientId").value(userPoolClient.getUserPoolClientId()).build();
 
 
 
