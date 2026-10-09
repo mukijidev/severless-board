@@ -23,7 +23,12 @@ import software.amazon.awscdk.services.apigateway.LambdaIntegration;
 import software.amazon.awscdk.services.apigateway.Resource;
 import software.amazon.awscdk.services.apigateway.RestApi;
 import software.amazon.awscdk.services.apigateway.StageOptions;
-
+import software.amazon.awscdk.services.cognito.AuthFlow;
+import software.amazon.awscdk.services.cognito.AutoVerifiedAttrs;
+import software.amazon.awscdk.services.cognito.SignInAliases;
+import software.amazon.awscdk.services.cognito.UserPool;
+import software.amazon.awscdk.services.cognito.UserPoolClient;
+import software.amazon.awscdk.services.cognito.UserPoolClientOptions;
 
 public class ServerlessBoardStack extends Stack {
     public ServerlessBoardStack(final Construct scope, final String id) {
@@ -89,6 +94,25 @@ public class ServerlessBoardStack extends Stack {
                 .value((api.getUrl()))
                 .description("Base URL of the board  API")
                 .build();
+
+
+        // User Pool
+        final UserPool userPool = UserPool.Builder.create(this, "BoardUserPool")
+                .userPoolName("serverless-board-users")
+                .selfSignUpEnabled(true)
+                .signInAliases(SignInAliases.builder().email(true).build())
+                .autoVerify(AutoVerifiedAttrs.builder().email(true).build())
+                .removalPolicy(RemovalPolicy.DESTROY)
+                .build();
+
+        final UserPoolClient userPoolClient = userPool.addClient("BoardWebClient",
+                UserPoolClientOptions.builder().generateSecret(false)
+                        .authFlows(AuthFlow.builder().userPassword(true).userSrp(true).build()).build());
+
+        CfnOutput.Builder.create(this, "UserPoolId").value(userPool.getUserPoolId()).build();
+        CfnOutput.Builder.create(this, "UserPoolClientId").value(userPoolClient.getUserPoolClientId()).build();
+
+
 
     }
 
